@@ -25,67 +25,68 @@ WindowsExplorer 开发者 ~~整天骂街~~
 ## 部分代码
 以下是部分代码qwq
 ```
+private async Task QueryLocationWithAutoSuggestBoxAsync(AutoSuggestBox sender)
+{
+    try
+    {
+        if (locationDictionary.ContainsKey(sender.Text))
         {
-            // 初始化窗口
-            this.InitializeComponent();
-            SearchPage.mainWindow = this;
-            this.SetIcon("Assets/App_Icon_Content_64.ico");
-            this.SearchLocationAutoSuggestBox.ItemsSource = locationName;
-            Configs.LoadConfig();
-            //DPIAdapted();
+            return;
         }
-
-        private ICommand OpenSettingPageCommand
+        locationDictionary.Clear();
+        locationName.Clear();
+        if (sender.Text == String.Empty
+            || !await CheckApiKeyAsync(false))
         {
-            get
-            {
-                return new ICommandBase
-                {
-                    CommandAction = () =>
-                    {
-                        PageContentFrame.Navigate(typeof(SettingPage));
-                        MainNavigationView.IsPaneOpen = false;
-                    }
-                };
-            }
+            return;
         }
-
-        private async Task<bool> CheckApiKeyAsync(bool showDialog = true)
+        string cutLocation = sender.Text.Trim().Replace(" ", null);
+        string[] replaceString = { "，", "。", "." };
+        foreach (string replaceItem in replaceString)
         {
-            async Task ShowContentDialogAsync(string errorCode)
-            {
-                if (showDialog)
-                {
-                    ContentDialog contentDialog = new ContentDialog
-                    {
-                        Title = "提示",
-                        Content = $@"请到设置页面配置正确的 API 密钥。
-错误代码：{errorCode}",
-                        PrimaryButtonText = "去配置",
-                        PrimaryButtonCommand = OpenSettingPageCommand,
-                        CloseButtonText = "OK",
-                        DefaultButton = ContentDialogButton.Primary,
-                        XamlRoot = this.Content.XamlRoot
-                    };
-                    await contentDialog.ShowAsync();
-                }
-            }
-            if (string.IsNullOrEmpty(Configs.ApiKey))
-            {
-                await ShowContentDialogAsync("400");
-                return false;
-            }
-            try
-            {
-                await QWeatherAPI.GeoAPI.GetGeoAsync("北京", Configs.ApiKey);
-            }
-            catch (ArgumentException ex)
-            {
-                await ShowContentDialogAsync(ex.Message);
-                return false;
-            }
-            return true;
+            cutLocation.Replace(replaceItem, ",");
         }
+        string[] queryLocation = cutLocation.Split(',');
+        GeoResult result;
+        if (queryLocation.Length == 1)
+        {
+            result = await QWeatherAPI.GeoAPI.GetGeoAsync(queryLocation[queryLocation.Length - 1], Configs.ApiKey, limit: 20);
+        }
+        else
+        {
+            result = await QWeatherAPI.GeoAPI.GetGeoAsync(queryLocation[queryLocation.Length - 1], Configs.ApiKey, adm: queryLocation[queryLocation.Length - 2], limit: 20);
+        }
+        foreach (Location location in result.Locations)
+        {
+            string locationName = location.Name;
+            if (!(location.Adm2.Substring(0, location.Name.Length >= location.Adm2.Length ?
+                location.Adm2.Length : location.Name.Length) == location.Name))
+            {
+                locationName = locationName.Insert(0, location.Adm2 + ", ");
+            }
+            else if (!(location.Adm1.Substring(0, location.Name.Length >= location.Adm1.Length ?
+                location.Adm1.Length : location.Name.Length) == location.Name))
+            {
+                locationName = locationName.Insert(0, location.Adm1 + ", ");
+            }
+            else
+            {
+                locationName = locationName.Insert(0, location.Country + ", ");
+            }
+            locationDictionary.Add(locationName, location);
+            this.locationName.Add(locationName);
+        }
+    }
+    catch (ArgumentException ex)
+    {
+        switch (ex.Message)
+        {
+            case "404":
+                locationName.Clear();
+                break;
+        }
+    }
+}
 ```
 ## 来自BilShiziheng的留言
 
@@ -95,4 +96,4 @@ hi，这里是开发团队的~~督促的~~石头，这里面的UI是我设计的
 
 ##下载地址
 那你说了这么半天废话？下载地址？
-[点这里下载]https://github.com/WinExp/SunWeather/releases/tag/1.0.0
+[点这里下载](https://github.com/WinExp/SunWeather/releases/tag/1.0.0 "Sun Weather 最新版下载")
